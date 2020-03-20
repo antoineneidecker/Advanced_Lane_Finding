@@ -17,12 +17,12 @@ The goals / steps of this project are the following:
 
 [//]: # (Image References)
 
-[image1]: ./picturesWriteup/chessCalibration.png "Undistorted"
+[image1]: ./picturesWriteup/chessCalibration.png
 [image2]: ./test_images/test1.jpg "Road Transformed"
-[image3]: ./picturesWriteup/sobel.png "Binary Example"
+[image3]: ./picturesWriteup/sobel.png 
 [image4]: ./examples/warped_straight_lines.jpg "Warp Example"
-[image5]: ./picturesWriteup/bestfit.png "Fit Visual"
-[image6]: ./picturesWriteup/final.png "Output"
+[image5]: ./picturesWriteup/bestfit.png 
+[image6]: ./picturesWriteup/final.png 
 [video1]: ./project_video.mp4 "Video"
 
 ### Camera Calibration
