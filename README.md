@@ -1,39 +1,92 @@
-## Advanced Lane Finding
-[![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
-![Lanes Image](./examples/example_output.jpg)
+## Writeup
 
-In this project, your goal is to write a software pipeline to identify the lane boundaries in a video, but the main output or product we want you to create is a detailed writeup of the project.  Check out the [writeup template](https://github.com/udacity/CarND-Advanced-Lane-Lines/blob/master/writeup_template.md) for this project and use it as a starting point for creating your own writeup.  
 
-Creating a great writeup:
----
-A great writeup should include the rubric points as well as your description of how you addressed each point.  You should include a detailed description of the code used in each step (with line-number references and code snippets where necessary), and links to other supporting documents or external references.  You should include images in your writeup to demonstrate how your code works with examples.  
+**Advanced Lane Finding Project**
 
-All that said, please be concise!  We're not looking for you to write a book here, just a brief description of how you passed each rubric point, and references to the relevant code :). 
-
-You're not required to use markdown for your writeup.  If you use another method please just submit a pdf of your writeup.
-
-The Project
----
+In this notebook we will explain how to clearly isolate the portion of the road between two lane lines, on a road. 
 
 The goals / steps of this project are the following:
 
-* Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
+* Compute the camera calibration matrix and distortion coefficients given a set of chessboard images. Our camera lenses distort the way the geometry appears in reality. We must recalibrate it using a chessboard in order to transform the feed into images fathfull to ground truth.
 * Apply a distortion correction to raw images.
-* Use color transforms, gradients, etc., to create a thresholded binary image.
-* Apply a perspective transform to rectify binary image ("birds-eye view").
+* Use color transforms, gradients, etc., to create a thresholded binary image. A mix of the Sobel filter and S gradient is used. 
+* Apply a perspective transform to rectify binary image ("top-down view").
 * Detect lane pixels and fit to find the lane boundary.
 * Determine the curvature of the lane and vehicle position with respect to center.
-* Warp the detected lane boundaries back onto the original image.
 * Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
-The images for camera calibration are stored in the folder called `camera_cal`.  The images in `test_images` are for testing your pipeline on single frames.  If you want to extract more test images from the videos, you can simply use an image writing method like `cv2.imwrite()`, i.e., you can read the video in frame by frame as usual, and for frames you want to save for later you can write to an image file.  
+[//]: # (Image References)
 
-To help the reviewer examine your work, please save examples of the output from each stage of your pipeline in the folder called `output_images`, and include a description in your writeup for the project of what each image shows.    The video called `project_video.mp4` is the video your pipeline should work well on.  
+[image1]: ./picturesWriteup/chessboards.jpg
+[image2]: ./picturesWriteup/original.jpg
+[image3]: ./picturesWriteup/sobel.jpg 
+[image5]: ./picturesWriteup/bestfit.jpg 
+[image6]: ./picturesWriteup/final.jpg
+[video1]: ./project_video_solution.mp4 
 
-The `challenge_video.mp4` video is an extra (and optional) challenge for you if you want to test your pipeline under somewhat trickier conditions.  The `harder_challenge.mp4` video is another optional challenge and is brutal!
+### Camera Calibration
 
-If you're feeling ambitious (again, totally optional though), don't stop there!  We encourage you to go out and take video of your own, calibrate your camera and show us how you would implement this project from scratch!
 
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
+The code for this step is contained in the first code cell of the notebook. 
 
+I start by preparing "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.  Thus, `objp` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  `imgpoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
+
+I then used the output `objpoints` and `imgpoints` to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera()` function.  I applied this distortion correction to the test image using the `cv2.undistort()` function and obtained this result: 
+
+![alt text][image1]
+
+### Pipeline (single images)
+
+To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
+![alt text][image2]
+
+
+I used a combination of color and gradient thresholds to generate a binary image. In the `pipeline()` we use both sobel filters and the S (saturation) channel in order to isolate pixels which are part of the lane line. The parameters have been chosen to maximize the contrast between lane lines and the rest of the image. Here's an example of my output for this step:
+
+![alt text][image3]
+
+The code for my perspective transform includes a function called `perspective_change()`, which appears in the 5th code cell of the IPython notebook.  The `perspective_change()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
+
+```python
+src = np.float32(
+            [[280,  700],  # Bottom left
+             [595,  460],  # Top left
+             [725,  460],  # Top right
+             [1125, 700]]) # Bottom right # Bottom right
+dst = np.float32(
+            [[250,  720],  # Bottom left
+             [250,    0],  # Top left
+             [1065,   0],  # Top right
+             [1065, 720]]) # Bottom right   
+```
+
+
+Then I applied the perspective transform to the binary image. This enabled me to create a histogram with each bin containing the cumulative amount of detected pixels in the bottom half of the image. Taking the two peaks gives us the approximate position of each lane line. From there, step by step, we go up the image looking at all points around a certain region of our estimated lane line and we recenter that region around the mean value of points found before going to the next step. When we reach half the height of the image (aproximately where the horizon line is), we plot the best fit line which goes through our detected points. This best fit is a second order polynomial. 
+
+![alt text][image5]
+
+
+
+Having our second order polynomial enables us to establish the curvature of the lanes. This is done in the `measure_curvature_real()`. The input parameter is a binary image which has gone through our `pipeline()` method. Here we determine the curvature of the lanes. We solve for the line curvatures with mathematical formula for curvature and converting the result in meter values.
+
+
+I implemented the final result of displaying the lane as a green region in the `draw_lanes()` method. This is then paired with the `add_metrics()` method which displays the lane line curvatures and the offset of the car between the lanes.
+
+![alt text][image6]
+
+---
+
+### Pipeline (video)
+
+Here's a [link to my video result](./project_video_solution.mp4)
+
+---
+
+### Discussion
+
+
+Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+
+The main improvement which could be done to the pipeline would be to add a security feature which would take into account the previous frame's findings. Here, every frame is analyzed independently. This can cause issues when the car is going through changes in lighting or where lines are hard to identify.
+
+Another improvement would be to do more analysis on the image filters. We could play around with the blue and green filter to put more weight on the yellow lines. Also the Sobel filter could be improved. Adjusting the prefered gradient directions for the right and left lines perpendicular to the previous line direction would be a good improvement. 
